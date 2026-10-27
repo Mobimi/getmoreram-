@@ -78,6 +78,10 @@ class LoginViewModel: ObservableObject {
         }
 
         do {
+            // Pick up changes made in Settings and discard an identity that
+            // belongs to a different anisette server (otherwise Apple returns
+            // -45061/-29003 or -80046).
+            AnisetteDataHelper.shared.setServerURL(DataManager.shared.model.anisetteServerURL)
             let anisetteData = try await AnisetteDataHelper.shared.getAnisetteData()
 
             let (account, session) = try await AppleAPI.shared.authenticate(appleID: appleID, password: password, anisetteData: anisetteData) { [weak self] completionHandler in

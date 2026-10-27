@@ -75,13 +75,24 @@ extension String: @retroactive LocalizedError {
 
 class SharedModel: ObservableObject {
     @Published var isLogin = false
-    @AppStorage("AnisetteServer") var anisetteServerURL = "https://ani.sidestore.io"
+    // Apple's October 2026 GrandSlam change (-80046) rejects anisette data from
+    // the old Android ADI servers such as ani.sidestore.io. "new." is Apple's
+    // Mac ADI library, which still works with a matching Mac client identity.
+    @AppStorage("AnisetteServer") var anisetteServerURL = "https://new.ani.sidestore.io"
     var session: AppleAPISession?
     var account: Account?
     var team: Team?
     
     init() {
-        AnisetteDataHelper.shared.url = URL(string: anisetteServerURL)
+        // One-time migration for users who never changed the built-in default.
+        let oldDefault = "https://ani.sidestore.io"
+        let normalizedServer = anisetteServerURL
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if normalizedServer == oldDefault {
+            anisetteServerURL = "https://new.ani.sidestore.io"
+        }
+        AnisetteDataHelper.shared.setServerURL(anisetteServerURL)
     }
 }
 

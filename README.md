@@ -49,6 +49,28 @@ Một ứng dụng iOS mã nguồn mở giúp quản lý và kích hoạt các q
 
 ---
 
+## 🔑 Sửa lỗi đăng nhập `-80046` / `-80045` / `-22411` (Apple thay đổi 10/2026)
+
+Từ **21/10/2026**, Apple từ chối anisette data do các server dùng **Android ADI** sinh ra (ví dụ `https://ani.sidestore.io`). Lỗi thường gặp là `-80046` ngay sau khi nhập mã 2FA, hoặc `-80045` / `-22411` / lỗi `3840` khi đăng nhập.
+
+Cách xử lý:
+
+1. Vào **Cài Đặt → Anisette Server URL**, đổi sang một server **Mac ADI**:
+   - `https://new.ani.sidestore.io` (khuyến nghị)
+   - `https://mac-ani.jkcoxson.com` (dự phòng)
+2. Thoát hẳn ứng dụng rồi mở lại (bản cũ chỉ đọc URL lúc khởi động).
+3. Bấm **Xóa Dữ Liệu Keychain** để xóa `adi.pb` cũ, sau đó đăng nhập lại. Apple sẽ cấp anisette mới và hỏi mã 2FA **một lần**.
+
+Bản source này đã tự động:
+- Dùng `new.ani.sidestore.io` làm mặc định và tự chuyển người dùng cũ khỏi `ani.sidestore.io`.
+- Gửi client identity Mac hiện tại của SideStore (`MacBookPro18,3 / macOS 26.6 / Xcode 26.0`).
+- Gửi `en_US` + `UTC` và timestamp UTC (locale/timezone máy, ví dụ `vi_VN`/`GMT+7`, làm Apple trả HTTP 500 ở bước 2FA).
+- Xóa anisette identity cũ khi đổi server để tránh `-29003` / `-45061`.
+
+> Server cộng đồng có thể bị Apple chặn bất cứ lúc nào. Nếu vẫn lỗi, thử server Mac khác trong danh sách hoặc dùng [SideInstaller](https://sideinstaller.net) (bản 1.6.1+ đã có fix `-80046`).
+
+---
+
 ## 🔒 Bản Quyền & Lời Cảm Ơn (Credits)
 - **Stossy11** — Tác giả thư viện [StosSign](https://github.com/stossy11/StosSign).
 - **SideStore Team** — Anisette data fetching & Apple auth mechanisms.

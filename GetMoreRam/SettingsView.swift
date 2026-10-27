@@ -87,7 +87,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Anisette")
                 } footer: {
-                    Text("Máy chủ sinh dữ liệu Anisette để xác thực 2FA với Apple.")
+                    Text("Máy chủ sinh dữ liệu Anisette để xác thực 2FA với Apple.\nKhuyến nghị: https://new.ani.sidestore.io hoặc https://mac-ani.jkcoxson.com (Mac ADI). Sau khi đổi server, hãy xóa Keychain và đăng nhập lại — Apple sẽ cấp anisette mới và hỏi mã 2FA một lần.")
                 }
                 
                 // Device Hardware Info

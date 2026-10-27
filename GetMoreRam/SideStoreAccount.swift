@@ -91,6 +91,7 @@ enum SideStoreAccountImporter {
         Keychain.shared.adiPb = adiPB
         Keychain.shared.identifier = localUser
         AnisetteDataHelper.shared.resetClientInfo()
+        AnisetteDataHelper.shared.markIdentityProvisioned(on: DataManager.shared.model.anisetteServerURL)
         
         return SideStoreAccount(email: email, password: password, adiPB: adiPB, localUser: localUser)
     }

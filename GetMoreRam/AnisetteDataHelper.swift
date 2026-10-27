@@ -32,6 +32,55 @@ final class AnisetteDataHelper
     
     var loggingFunc: ((String)->Void)?
     
+    // The anisette identity (identifier + adi.pb) is tied to the server that
+    // provisioned it. Remember which server owns the stored identity so we can
+    // throw it away when the user switches servers.
+    private static let identityServerKey = "AnisetteIdentityServerURL"
+    // Bump this whenever the default client identity changes, so existing
+    // adi.pb files are re-provisioned with the new headers.
+    private static let identitySchemaVersion = "mac-2026-10"
+    
+    private func normalizedServerString(_ value: String) -> String {
+        var result = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        while result.hasSuffix("/") {
+            result.removeLast()
+        }
+        return result
+    }
+    
+    func setServerURL(_ urlString: String) {
+        let normalized = normalizedServerString(urlString)
+        guard !normalized.isEmpty, let newURL = URL(string: normalized) else {
+            self.printOut("Invalid anisette server URL: \(urlString)")
+            url = nil
+            return
+        }
+        
+        self.url = newURL
+        
+        let identityKey = "\(Self.identitySchemaVersion)|\(normalized)"
+        let identityServer = UserDefaults.standard.string(forKey: Self.identityServerKey)
+        if identityServer != identityKey {
+            let hadIdentity = Keychain.shared.identifier != nil || Keychain.shared.adiPb != nil
+            if hadIdentity {
+                self.printOut("Anisette server/identity changed to \(normalized), clearing the old anisette identity")
+            }
+            Keychain.shared.identifier = nil
+            Keychain.shared.adiPb = nil
+            UserDefaults.standard.set(identityKey, forKey: Self.identityServerKey)
+            resetClientInfo()
+        }
+    }
+    
+    /// Marks an identity that did not come from this helper's provisioning
+    /// flow (for example a SideStore account import) as belonging to `urlString`,
+    /// so the next sign-in does not throw it away.
+    func markIdentityProvisioned(on urlString: String) {
+        let normalized = normalizedServerString(urlString)
+        guard !normalized.isEmpty else { return }
+        UserDefaults.standard.set("\(Self.identitySchemaVersion)|\(normalized)", forKey: Self.identityServerKey)
+    }
+    
     func resetClientInfo() {
         clientInfo = nil
         userAgent = nil
@@ -88,17 +137,20 @@ final class AnisetteDataHelper
                 formattedJSON["deviceDescription"] = self.clientInfo!
                 formattedJSON["localUserID"] = self.mdLu!
                 formattedJSON["deviceUniqueIdentifier"] = self.deviceId!
+                formattedJSON["userAgent"] = self.userAgent!
                 
-                // Generate date stuff on client
+                // Apple's 2FA endpoints reject localised anisette headers
+                // (HTTP 500). AnisetteKit always reports en_US/UTC, and the
+                // timestamp must really be UTC, not local time with a "Z".
                 let formatter = DateFormatter()
                 formatter.locale = Locale(identifier: "en_US_POSIX")
                 formatter.calendar = Calendar(identifier: .gregorian)
-                formatter.timeZone = TimeZone.current
+                formatter.timeZone = TimeZone(identifier: "UTC")
                 formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
                 let dateString = formatter.string(from: Date())
                 formattedJSON["date"] = dateString
-                formattedJSON["locale"] = Locale.current.identifier
-                formattedJSON["timeZone"] = TimeZone.current.abbreviation()
+                formattedJSON["locale"] = "en_US"
+                formattedJSON["timeZone"] = "UTC"
             } else {
                 if let deviceDescription = json["X-MMe-Client-Info"] { formattedJSON["deviceDescription"] = deviceDescription }
                 if let localUserID = json["X-Apple-I-MD-LU"] { formattedJSON["localUserID"] = localUserID }
@@ -328,8 +380,8 @@ final class AnisetteDataHelper
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
         let dateString = formatter.string(from: Date())
         request.setValue(dateString, forHTTPHeaderField: "X-Apple-I-Client-Time")
-        request.setValue(Locale.current.identifier, forHTTPHeaderField: "X-Apple-Locale")
-        request.setValue(TimeZone.current.abbreviation(), forHTTPHeaderField: "X-Apple-I-TimeZone")
+        request.setValue("en_US", forHTTPHeaderField: "X-Apple-Locale")
+        request.setValue("UTC", forHTTPHeaderField: "X-Apple-I-TimeZone")
         return request
     }
     
@@ -347,8 +399,11 @@ final class AnisetteDataHelper
         
         self.printOut("Using custom client_info")
                         
-        self.clientInfo = "<iMac18,3> <macOS;27.0;26A5378j> <com.apple.AuthKit/1 (com.apple.akd/1.0)>"
-        self.userAgent = "AuthKit/1 (Macintosh; OS X 27.0) (com.apple.akd/1.0)"
+        // SideStore's current Mac identity (macOS 26.6 / Xcode 26.0). Apple's
+        // October 2026 change refuses the old iMac/macOS 27.0 profile and the
+        // servers' built-in macOS 10.12.6 profile (-23782 / -80046).
+        self.clientInfo = "<MacBookPro18,3> <macOS;26.6;25F84> <com.apple.AuthKit/1 (com.apple.dt.Xcode/26.0)>"
+        self.userAgent = "AuthKit/1 (Macintosh; OS X 26.6) (com.apple.dt.Xcode/26.0)"
         self.printOut("Client-Info: \(self.clientInfo!)")
         self.printOut("User-Agent: \(self.userAgent!)")
         
